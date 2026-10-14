@@ -62,6 +62,19 @@ class Results(UserList):
         out += str(self)
         return out
 
+    def __add__(self, other):
+        # Combine the urls and errors along with the paths
+        result = super().__add__(other)
+        result._urls = self._urls + getattr(other, "_urls", [])
+        result._errors = self._errors + getattr(other, "_errors", [])
+        return result
+
+    def __iadd__(self, other):
+        super().__iadd__(other)
+        self._urls += getattr(other, "_urls", [])
+        self._errors += getattr(other, "_errors", [])
+        return self
+
     def append(self, *, path, url):
         super().append(path)
         self._urls.append(url)
