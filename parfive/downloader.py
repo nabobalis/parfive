@@ -434,7 +434,7 @@ class Downloader:
         """
         if self.config.progress:
             return self.tqdm(total=total, unit="file", desc="Files Downloaded", position=0)
-        return contextlib.contextmanager(lambda: iter([None]))()
+        return contextlib.nullcontext()
 
     async def _run_http_download(self, main_pb):
         async with self.config.aiohttp_client_session() as session:

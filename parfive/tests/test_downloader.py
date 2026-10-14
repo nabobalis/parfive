@@ -882,3 +882,11 @@ def test_problematic_http_urls(url, tmpdir):
     res = Downloader.simple_download([url], path=tmpdir)
     assert len(res) == 1, res.errors
     assert not res.errors
+
+
+def test_errors_not_hidden_without_progress_bar():
+    # The stand-in for the progress bar must let errors from the download through
+    dl = Downloader(progress=False)
+    with patch.object(Downloader, "_format_results", side_effect=RuntimeError("boom")):
+        with pytest.raises(RuntimeError, match="boom"):
+            dl.download()
