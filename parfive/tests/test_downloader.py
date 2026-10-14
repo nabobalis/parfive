@@ -1,3 +1,4 @@
+import asyncio
 import os
 import platform
 import threading
@@ -12,7 +13,7 @@ from aiohttp import ClientConnectorError, ClientTimeout
 import parfive
 from parfive.config import SessionConfig
 from parfive.downloader import Downloader, FailedDownload, Results, Token
-from parfive.utils import ChecksumMismatch, check_file_hash
+from parfive.utils import ChecksumMismatch, ParfiveUserWarning, check_file_hash
 
 skip_windows = pytest.mark.skipif(platform.system() == "Windows", reason="Windows.")
 
@@ -882,3 +883,14 @@ def test_problematic_http_urls(url, tmpdir):
     res = Downloader.simple_download([url], path=tmpdir)
     assert len(res) == 1, res.errors
     assert not res.errors
+
+
+@pytest.mark.asyncio
+async def test_writer_failure_does_not_hang(namedserver, tmp_path):
+    # A directory at the download path makes the file writer fail (#124)
+    (tmp_path / "testfile.txt").mkdir()
+    dl = Downloader(progress=False, overwrite=True)
+    dl.enqueue_file(f"{namedserver.url}/testfile.txt", path=tmp_path)
+    with pytest.warns(ParfiveUserWarning, match="Failed to delete possibly incomplete file"):
+        files = await asyncio.wait_for(dl.run_download(), timeout=10)
+    assert len(files.errors) == 1

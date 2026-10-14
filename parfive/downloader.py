@@ -717,8 +717,15 @@ class Downloader:
 
             # run all the download workers
             await asyncio.gather(*tasks)
-            # join() waits till all the items in the queue have been processed
-            await downloaded_chunk_queue.join()
+            # join() waits till all the items in the queue have been processed,
+            # which never happens if the writer has failed (e.g. to open the file)
+            join = asyncio.ensure_future(downloaded_chunk_queue.join())
+            await asyncio.wait([join, writer], return_when=asyncio.FIRST_COMPLETED)
+            if writer.done():
+                await cancel_task(join)
+                # Raise the error that stopped the writer, which then needs no cancelling
+                error, writer = writer.exception(), None
+                raise error
 
             with filepath.open(mode="rb") as fobj:
                 if isinstance(checksum, str) and not check_file_hash(
