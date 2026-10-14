@@ -566,7 +566,8 @@ class Downloader:
             elif scheme == "https":
                 kwargs["proxy"] = self.config.https_proxy
 
-            request_headers = {}
+            # Add to a copy of any headers passed to enqueue_file
+            request_headers = dict(kwargs.get("headers", {}))
             if checksum:
                 checksum_priority = {
                     "sha-512": 8,
@@ -588,7 +589,7 @@ class Downloader:
                 )
 
             async with session_head_or_get(
-                session, url, headers=request_headers, timeout=self.config.timeouts, **kwargs
+                session, url, timeout=self.config.timeouts, **{**kwargs, "headers": request_headers}
             ) as resp:
                 parfive.log.debug(
                     "%s request made to %s with headers=%s",
@@ -834,7 +835,8 @@ class Downloader:
         kwargs : `dict`
             Extra keyword arguments are passed to `aiohttp.ClientSession.get`.
         """
-        headers = kwargs.pop("headers", {})
+        # Copy, as the splits of a file share the headers passed to enqueue_file
+        headers = dict(kwargs.pop("headers", {}))
         if http_range:
             headers["Range"] = "bytes={}-{}".format(*http_range)
             # init offset to start of range

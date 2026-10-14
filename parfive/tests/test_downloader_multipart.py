@@ -35,3 +35,18 @@ def test_multipart_with_error(multipartserver, tmp_path):
 
     expected_file = tmp_path / "testfile.txt"
     assert not expected_file.exists()
+
+
+def test_multipart_with_headers(multipartserver, tmp_path):
+    headers = {"X-Test": "value"}
+    dl = Downloader(progress=False)
+    dl.enqueue_file(multipartserver.url, path=tmp_path, max_splits=5, headers=headers)
+    files = dl.download()
+
+    assert not files.errors
+    with open(files[0], "rb") as fobj:
+        assert fobj.read() == b"a" * 100
+    # Every request carries the given headers and each split asks for its own range
+    assert all(req["HTTP_X_TEST"] == "value" for req in multipartserver.requests)
+    assert len({req["HTTP_RANGE"] for req in multipartserver.requests[1:]}) == 5
+    assert headers == {"X-Test": "value"}
