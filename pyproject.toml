@@ -54,7 +54,8 @@ docs = [
 ]
 
 [project.urls]
-repository = "https://parfive.readthedocs.io/"
+documentation = "https://parfive.readthedocs.io/"
+repository = "https://github.com/Cadair/parfive"
 
 [tool.setuptools]
 zip-safe = false
