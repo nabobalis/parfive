@@ -207,7 +207,7 @@ class Downloader:
             Extra keyword arguments are passed to `aiohttp.ClientSession.request`
             or `aioftp.Client.context` depending on the protocol.
         """
-        overwrite = overwrite or self.config.overwrite
+        overwrite = self.config.overwrite if overwrite is None else overwrite
         if isinstance(checksum, str):
             validate_checksum_format(checksum)
 

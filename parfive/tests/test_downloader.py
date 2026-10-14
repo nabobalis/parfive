@@ -882,3 +882,14 @@ def test_problematic_http_urls(url, tmpdir):
     res = Downloader.simple_download([url], path=tmpdir)
     assert len(res) == 1, res.errors
     assert not res.errors
+
+
+def test_enqueue_overwrite_false_overrides_downloader(namedserver, tmp_path):
+    existing = tmp_path / "testfile.txt"
+    existing.write_text("existing")
+    dl = Downloader(progress=False, overwrite=True)
+    dl.enqueue_file(f"{namedserver.url}/testfile.txt", path=tmp_path, overwrite=False)
+    files = dl.download()
+
+    assert list(files) == [str(existing)]
+    assert existing.read_text() == "existing"
