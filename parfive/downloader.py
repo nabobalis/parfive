@@ -206,6 +206,8 @@ class Downloader:
         kwargs : `dict`
             Extra keyword arguments are passed to `aiohttp.ClientSession.request`
             or `aioftp.Client.context` depending on the protocol.
+            If a conditional request (e.g. with an ``If-None-Match`` header) is
+            answered with "304 Not Modified", the existing local file is returned.
         """
         overwrite = overwrite or self.config.overwrite
         if isinstance(checksum, str):
@@ -602,6 +604,13 @@ class Downloader:
                     resp.request_info.url,
                     resp.headers,
                 )
+                if resp.status == 304:
+                    # The request was conditional (e.g. If-None-Match) and the
+                    # server says the local copy is still current
+                    local_file = pathlib.Path(filepath_partial(resp, url))
+                    if local_file.exists():
+                        parfive.log.debug("File %s not modified; skipping download.", local_file)
+                        return url, str(local_file)
                 if resp.status < 200 or resp.status >= 300:
                     raise FailedDownload(filepath_partial, url, resp)
                 filepath, use_local_file_if_possible = get_filepath(filepath_partial(resp, url), overwrite)

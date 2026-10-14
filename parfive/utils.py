@@ -335,7 +335,8 @@ async def session_head_or_get(session: aiohttp.ClientSession, url: str, **kwargs
     """
     try:
         async with session.head(url, **kwargs) as resp:
-            if resp.status == 200:
+            # 304 answers a conditional request (e.g. If-None-Match): there is nothing to GET
+            if resp.status in (200, 304):
                 yield resp
                 return
     # Catch the situation where the server just ignores the HEAD request

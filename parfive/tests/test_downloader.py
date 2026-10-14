@@ -1,6 +1,7 @@
 import os
 import platform
 import threading
+from functools import partial
 from pathlib import Path
 from unittest import mock
 from unittest.mock import MagicMock, patch
@@ -882,3 +883,29 @@ def test_problematic_http_urls(url, tmpdir):
     res = Downloader.simple_download([url], path=tmpdir)
     assert len(res) == 1, res.errors
     assert not res.errors
+
+
+def not_modified_for(etag, server, environ, start_response):
+    if environ.get("HTTP_IF_NONE_MATCH") == etag:
+        start_response("304 Not Modified", [("ETag", etag)])
+        return [b""]
+
+
+@pytest.mark.parametrize("local_copy", [True, False])
+def test_not_modified(namedserver, tmp_path, local_copy):
+    # A conditional request answered with 304 means the local copy is current
+    namedserver.callback = partial(not_modified_for, '"v1"')
+    existing = tmp_path / "testfile.txt"
+    if local_copy:
+        existing.write_text("existing")
+    dl = Downloader(config=SessionConfig(headers={"If-None-Match": '"v1"'}), progress=False, overwrite=True)
+    dl.enqueue_file(f"{namedserver.url}/testfile.txt", path=tmp_path)
+    files = dl.download()
+
+    assert namedserver.requests_by_method["GET"] == 0
+    if local_copy:
+        assert list(files) == [str(existing)]
+        assert existing.read_text() == "existing"
+    else:
+        assert len(files.errors) == 1
+        assert not existing.exists()
