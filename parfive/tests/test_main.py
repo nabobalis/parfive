@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pytest
 
 from parfive.main import parse_args, run_parfive
@@ -71,8 +69,8 @@ def test_url(multipartserver):
         ["--verbose"],
     ],
 )
-def test_run_cli_success(args, test_url, capsys):
-    cliargs = parse_args([*args, test_url])
+def test_run_cli_success(args, test_url, capsys, tmp_path):
+    cliargs = parse_args([*args, "--directory", str(tmp_path), test_url])
     with pytest.raises(SystemExit) as exit_exc:
         run_parfive(cliargs)
 
@@ -93,4 +91,4 @@ def test_run_cli_success(args, test_url, capsys):
     if "--verbose" in args:
         assert "DEBUG" in cap_out.err
 
-    Path("testfile.txt").unlink()
+    assert (tmp_path / "testfile.txt").exists()
