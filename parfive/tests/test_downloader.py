@@ -1,3 +1,4 @@
+import asyncio
 import os
 import platform
 import threading
@@ -882,3 +883,20 @@ def test_problematic_http_urls(url, tmpdir):
     res = Downloader.simple_download([url], path=tmpdir)
     assert len(res) == 1, res.errors
     assert not res.errors
+
+
+def test_download_closes_its_event_loop(namedserver, tmp_path):
+    loops = []
+    new_event_loop = asyncio.new_event_loop
+
+    def record_new_event_loop():
+        loops.append(new_event_loop())
+        return loops[-1]
+
+    dl = Downloader(progress=False)
+    dl.enqueue_file(f"{namedserver.url}/testfile.txt", path=tmp_path)
+    with patch("asyncio.new_event_loop", record_new_event_loop):
+        dl.download()
+
+    assert len(loops) == 1
+    assert loops[0].is_closed()
