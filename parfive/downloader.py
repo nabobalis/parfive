@@ -30,6 +30,7 @@ from .utils import (
     get_filepath,
     get_ftp_size,
     get_http_size,
+    part_path,
     remove_file,
     run_task_in_thread,
     session_head_or_get,
@@ -557,7 +558,7 @@ class Downloader:
             max_splits = self.config.max_splits
 
         # Define filepath and writer here as we use them in the except block
-        filepath = writer = None
+        filepath = writer = part = None
         tasks: list[asyncio.Task] = []
         try:
             scheme = urllib.parse.urlparse(url).scheme
@@ -672,7 +673,8 @@ class Downloader:
                 # as tuples: (offset, chunk)
                 downloaded_chunk_queue: asyncio.Queue = asyncio.Queue()
 
-                writer = asyncio.create_task(self._write_worker(downloaded_chunk_queue, file_pb, filepath))
+                part = part_path(filepath)
+                writer = asyncio.create_task(self._write_worker(downloaded_chunk_queue, file_pb, part))
 
                 if (
                     not self.config.env.disable_range
@@ -720,13 +722,15 @@ class Downloader:
             # join() waits till all the items in the queue have been processed
             await downloaded_chunk_queue.join()
 
-            with filepath.open(mode="rb") as fobj:
+            with part.open(mode="rb") as fobj:
                 if isinstance(checksum, str) and not check_file_hash(
                     fobj, checksum, accept_invalid_checksum=True
                 ):
                     raise FailedDownload(
                         filepath, url, ChecksumMismatch("Downloaded checksum doesn't match.")
                     )
+            # Only now replace any existing file, so it never holds a partial download
+            part.replace(filepath)
 
             for callback in self.config.done_callbacks:
                 callback(filepath, url, None)
@@ -742,10 +746,9 @@ class Downloader:
                 await cancel_task(writer)
                 # Set writer to None so we don't cancel it twice.
                 writer = None
-            # If filepath is None then the exception occurred before the request
-            # computed the filepath, so we have no file to cleanup
-            if filepath is not None:
-                remove_file(filepath)
+            # If part is None the exception occurred before anything was written
+            if part is not None:
+                remove_file(part)
             for callback in self.config.done_callbacks:
                 callback(filepath, url, e)
             raise FailedDownload(filepath_partial, url, e)
@@ -903,7 +906,7 @@ class Downloader:
         `str`
             The name of the file saved.
         """
-        filepath = writer = None
+        filepath = writer = part = None
         parse = urllib.parse.urlparse(url)
         try:
             async with aioftp.Client.context(parse.hostname, **kwargs) as client:
@@ -938,9 +941,8 @@ class Downloader:
                 async with client.download_stream(parse.path) as stream:
                     downloaded_chunks_queue = asyncio.Queue()
                     download_workers = []
-                    writer = asyncio.create_task(
-                        self._write_worker(downloaded_chunks_queue, file_pb, filepath)
-                    )
+                    part = part_path(filepath)
+                    writer = asyncio.create_task(self._write_worker(downloaded_chunks_queue, file_pb, part))
 
                     download_workers.append(
                         asyncio.create_task(self._ftp_download_worker(stream, downloaded_chunks_queue))
@@ -948,6 +950,7 @@ class Downloader:
 
                     await asyncio.gather(*download_workers)
                     await downloaded_chunks_queue.join()
+                    part.replace(filepath)
 
                     for callback in self.config.done_callbacks:
                         callback(filepath, url, None)
@@ -958,10 +961,9 @@ class Downloader:
             if writer is not None:
                 await cancel_task(writer)
                 writer = None
-            # If filepath is None then the exception occurred before the request
-            # computed the filepath, so we have no file to cleanup
-            if filepath is not None:
-                remove_file(filepath)
+            # If part is None the exception occurred before anything was written
+            if part is not None:
+                remove_file(part)
                 filepath = None
 
             for callback in self.config.done_callbacks:

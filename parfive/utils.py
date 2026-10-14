@@ -4,6 +4,7 @@ import io
 import os
 import pathlib
 import typing
+import uuid
 import warnings
 from collections.abc import AsyncIterator, Generator
 from concurrent.futures import ThreadPoolExecutor
@@ -218,6 +219,14 @@ class ParfiveFutureWarning(FutureWarning):
     """
     Raised for future changes to the parfive API.
     """
+
+
+def part_path(filepath: os.PathLike) -> Path:
+    """
+    A unique path next to ``filepath`` to write a download to until it is complete.
+    """
+    filepath = Path(filepath)
+    return filepath.with_name(f"{filepath.name}.{uuid.uuid4().hex[:8]}.part")
 
 
 def remove_file(filepath: os.PathLike) -> None:
