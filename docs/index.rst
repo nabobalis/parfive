@@ -46,30 +46,21 @@ A simple example is::
   dl.enqueue_file("http://data.sunpy.org/sample-data/predicted-sunspot-radio-flux.txt", path="./")
   files = dl.download()
 
+`Downloader.download <parfive.Downloader.download>` blocks until every queued file has been downloaded (or has failed).
+From within a running asyncio event loop, ``await`` the `Downloader.run_download <parfive.Downloader.run_download>` coroutine instead::
+
+  files = await dl.run_download()
+
 It's also possible to download a list of URLs to a single destination using the `Downloader.simple_download <parfive.Downloader.simple_download>` method::
 
   from parfive import Downloader
-  files = Downloader.simple_download(['http://212.183.159.230/5MB.zip' 'http://212.183.159.230/10MB.zip'], path="./")
+  files = Downloader.simple_download(['http://212.183.159.230/5MB.zip', 'http://212.183.159.230/10MB.zip'], path="./")
 
 Parfive also bundles a CLI. The following example will download the two files concurrently::
 
   $ parfive 'http://212.183.159.230/5MB.zip' 'http://212.183.159.230/10MB.zip'
-  $ parfive --help
-  usage: parfive [-h] [--max-conn MAX_CONN] [--overwrite] [--no-file-progress] [--directory DIRECTORY] [--print-filenames] URLS [URLS ...]
 
-  Parfive, the python asyncio based downloader
-
-  positional arguments:
-    URLS                  URLs of files to be downloaded.
-
-  optional arguments:
-    -h, --help            show this help message and exit
-    --max-conn MAX_CONN   Number of maximum connections.
-    --overwrite           Overwrite if the file exists.
-    --no-file-progress    Show progress bar for each file.
-    --directory DIRECTORY
-                          Directory to which downloaded files are saved.
-    --print-filenames     Print successfully downloaded files's names to stdout.
+Run ``parfive --help`` for all of its options.
 
 
 Options and Customisation
