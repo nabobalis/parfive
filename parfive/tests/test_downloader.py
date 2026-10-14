@@ -2,6 +2,7 @@ import asyncio
 import os
 import platform
 import threading
+import time
 from pathlib import Path
 from unittest import mock
 from unittest.mock import MagicMock, patch
@@ -925,3 +926,31 @@ async def test_download_from_running_event_loop(namedserver, tmp_path):
     assert list(files) == [str(tmp_path / "testfile.txt")]
     assert len(loops) == 1
     assert loops[0].is_closed()
+
+
+def slow_get(server, environ, start_response):
+    if environ["REQUEST_METHOD"] == "GET":
+        time.sleep(2)
+
+
+def test_interrupted_download_finishes_its_tasks(namedserver, tmp_path):
+    # When interrupted (e.g. by Ctrl-C) the download's tasks still finish before the loop closes
+    namedserver.callback = slow_get
+    loops = []
+    new_event_loop = asyncio.new_event_loop
+
+    def interrupt():
+        raise KeyboardInterrupt
+
+    def interrupting_event_loop():
+        loops.append(new_event_loop())
+        loops[-1].call_later(0.5, interrupt)
+        return loops[-1]
+
+    dl = Downloader(progress=False)
+    dl.enqueue_file(f"{namedserver.url}/testfile.txt", path=tmp_path)
+    with patch("asyncio.new_event_loop", interrupting_event_loop), pytest.raises(KeyboardInterrupt):
+        dl.download()
+
+    assert loops[0].is_closed()
+    assert not asyncio.all_tasks(loops[0])

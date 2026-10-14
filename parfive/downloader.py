@@ -293,6 +293,15 @@ class Downloader:
                 return run_task_in_thread(loop, task)
             return loop.run_until_complete(task)
         finally:
+            # Like asyncio.run, let any tasks left after an interruption (e.g. Ctrl-C)
+            # finish cancelling, so they aren't destroyed while still running. A loop run
+            # in a thread has always finished by now (and this thread's loop is running).
+            if not should_run_in_thread:
+                if pending := asyncio.all_tasks(loop):
+                    for pending_task in pending:
+                        pending_task.cancel()
+                    loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+                loop.run_until_complete(loop.shutdown_asyncgens())
             loop.close()
 
     async def run_download(self):
