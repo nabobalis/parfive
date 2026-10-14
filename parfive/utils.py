@@ -338,8 +338,9 @@ async def session_head_or_get(session: aiohttp.ClientSession, url: str, **kwargs
             if resp.status == 200:
                 yield resp
                 return
-    # Catch the situation where the server just ignores the HEAD request
-    except aiohttp.client_exceptions.ServerDisconnectedError:
+    # Catch the situation where the server just ignores the HEAD request, or
+    # sends an invalid response to it (aiohttp>=3.14 rejects one with a body)
+    except (aiohttp.client_exceptions.ServerDisconnectedError, aiohttp.client_exceptions.ClientResponseError):
         pass
 
     async with session.get(url, **kwargs) as resp:
