@@ -889,7 +889,10 @@ def test_problematic_http_urls(url, tmpdir):
     assert not res.errors
 
 
-def test_download_closes_its_event_loop(namedserver, tmp_path):
+def download_recording_event_loops(dl):
+    """
+    Run ``dl.download()`` and return it along with the event loops it created.
+    """
     loops = []
     new_event_loop = asyncio.new_event_loop
 
@@ -897,10 +900,26 @@ def test_download_closes_its_event_loop(namedserver, tmp_path):
         loops.append(new_event_loop())
         return loops[-1]
 
+    with patch("asyncio.new_event_loop", record_new_event_loop):
+        return dl.download(), loops
+
+
+def test_download_closes_its_event_loop(namedserver, tmp_path):
     dl = Downloader(progress=False)
     dl.enqueue_file(f"{namedserver.url}/testfile.txt", path=tmp_path)
-    with patch("asyncio.new_event_loop", record_new_event_loop):
-        dl.download()
+    _, loops = download_recording_event_loops(dl)
 
+    assert len(loops) == 1
+    assert loops[0].is_closed()
+
+
+@pytest.mark.asyncio
+async def test_download_from_running_event_loop(namedserver, tmp_path):
+    # With a loop already running (e.g. in a notebook) download() runs its own loop in a thread
+    dl = Downloader(progress=False)
+    dl.enqueue_file(f"{namedserver.url}/testfile.txt", path=tmp_path)
+    files, loops = download_recording_event_loops(dl)
+
+    assert list(files) == [str(tmp_path / "testfile.txt")]
     assert len(loops) == 1
     assert loops[0].is_closed()
