@@ -679,6 +679,8 @@ class Downloader:
                     and max_splits
                     and resp.headers.get("Accept-Ranges", None) == "bytes"
                     and "Content-length" in resp.headers
+                    # Ranges of an encoded (e.g. gzip) response can't be decoded on their own
+                    and resp.headers.get("Content-Encoding", "identity") == "identity"
                 ):
                     content_length = int(resp.headers["Content-length"])
                     split_length = max(1, content_length // max_splits)
