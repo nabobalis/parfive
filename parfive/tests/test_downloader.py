@@ -876,11 +876,15 @@ def test_invalid_server_checksum(httpserver, tmpdir, caplog, checksum):
     "url", ["https://gong2.nso.edu/oQR/zqs/201912/mrzqs191231/mrzqs191231t2304c2225_011.fits.gz"]
 )
 @pytest.mark.allow_hosts(True)
+@pytest.mark.skipif(bool(os.environ.get("CI")), reason="gong2.nso.edu doesn't answer GitHub's runners")
 def test_problematic_http_urls(url, tmpdir):
     """
     This test checks that certain URLs which have caused trouble continue to work.
     """
     res = Downloader.simple_download([url], path=tmpdir)
+    # Skip rather than fail where the server can't be reached
+    if res.errors and isinstance(res.errors[0].exception, aiohttp.ClientConnectorError):
+        pytest.skip(f"Can not connect to {url}: {res.errors[0].exception}")
     assert len(res) == 1, res.errors
     assert not res.errors
 
