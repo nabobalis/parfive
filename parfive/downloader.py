@@ -401,7 +401,7 @@ class Downloader:
         return results
 
     @classmethod
-    def simple_download(cls, urls, *, path="./", overwrite=None):
+    def simple_download(cls, urls, *, path="./", overwrite=None, **kwargs):
         """
         Download a series of URLs to a single destination.
 
@@ -416,13 +416,15 @@ class Downloader:
             Overwrite the files at the destination directory. If `False` the
             URL will not be downloaded if a file with the corresponding
             filename already exists.
+        kwargs
+            Passed to `~parfive.Downloader`, e.g. ``progress=False``.
 
         Returns
         -------
         `parfive.Results`
             A list of files downloaded.
         """
-        dl = cls()
+        dl = cls(**kwargs)
         for url in urls:
             dl.enqueue_file(url, path=path, overwrite=overwrite)
         return dl.download()

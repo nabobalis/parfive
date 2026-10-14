@@ -882,3 +882,10 @@ def test_problematic_http_urls(url, tmpdir):
     res = Downloader.simple_download([url], path=tmpdir)
     assert len(res) == 1, res.errors
     assert not res.errors
+
+
+def test_simple_download_downloader_options(namedserver, tmp_path, capsys):
+    files = Downloader.simple_download([f"{namedserver.url}/testfile.txt"], path=tmp_path, progress=False)
+
+    assert list(files) == [str(tmp_path / "testfile.txt")]
+    assert "Files Downloaded" not in capsys.readouterr().err
