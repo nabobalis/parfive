@@ -753,8 +753,9 @@ class Downloader:
             raise FailedDownload(filepath_partial, url, e)
 
         finally:
+            # Wait for the writer to stop, so it has closed the file before we return
             if writer is not None:
-                writer.cancel()
+                await cancel_task(writer)
             if isinstance(file_pb, self.tqdm):
                 file_pb.close()
 
@@ -972,9 +973,9 @@ class Downloader:
             raise FailedDownload(filepath_partial, url, e)
 
         finally:
-            # Just make sure we close the file.
+            # Wait for the writer to stop, so it has closed the file before we return
             if writer is not None:
-                writer.cancel()
+                await cancel_task(writer)
             if isinstance(file_pb, self.tqdm):
                 file_pb.close()
 

@@ -92,6 +92,8 @@ async def test_async_download(httpserver, tmpdir, use_aiofiles):
 
     f = await dl.run_download()
     validate_test_file(f)
+    # Nothing is left running, e.g. a file writer that hasn't closed its file yet
+    assert asyncio.all_tasks() == {asyncio.current_task()}
 
 
 def test_download_ranged_http(httpserver, tmpdir):
